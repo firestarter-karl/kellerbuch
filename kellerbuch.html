@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kellerbuch">
+<title>Kellerbuch · Zippiri</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #0e0c0a;
+    --surface: #1a1714;
+    --card: #221f1b;
+    --border: #2e2a25;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --text: #f0ebe3;
+    --muted: #8a7f72;
+    --muted-light: #b0a090;
+    --remove: #c0392b;
+    --remove-light: #e74c3c;
+    --add: #2e7d52;
+    --add-light: #3aab6a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* SETUP SCREEN */
+  #setup-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 32px;
+    gap: 28px;
+  }
+  #setup-screen .logo-label {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  #setup-screen h1 {
+    font-size: 28px;
+    font-weight: 400;
+    text-align: center;
+    line-height: 1.3;
+  }
+  #setup-screen p {
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.7;
+    max-width: 340px;
+  }
+  #setup-screen input {
+    width: 100%;
+    max-width: 400px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 14px 18px;
+    font-size: 14px;
+    font-family: monospace;
+    outline: none;
+  }
+  #setup-screen input:focus { border-color: var(--gold); }
+  #setup-btn {
+    width: 100%;
+    max-width: 400px;
+    padding: 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--gold);
+    color: #0e0c0a;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  #setup-error { color: var(--remove-light); font-size: 13px; text-align: center; }
+
+  /* MAIN APP */
+  #app { display: none; flex-direction: column; height: 100vh; height: -webkit-fill-available; }
+
+  /* HEADER */
+  .header {
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .header-left .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 3px;
+  }
+  .header-left h1 { font-size: 22px; font-weight: 400; }
+  .header-right { text-align: right; }
+  .bottle-count { font-size: 26px; font-family: monospace; color: var(--gold); line-height: 1; }
+  .bottle-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .sync-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; justify-content: flex-end; }
+  .sync-status { font-size: 11px; color: var(--muted); }
+  .sync-status.ok { color: var(--add-light); }
+  .sync-status.error { color: var(--remove-light); }
+  .sync-status.syncing { color: var(--gold); }
+  .refresh-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 3px 10px; border-radius: 5px; font-size: 11px; cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .tab-btn {
+    flex: 1; padding: 13px 0; background: none; border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted); font-size: 12px; font-weight: 400;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+    font-family: inherit; transition: color 0.2s;
+  }
+  .tab-btn.active { border-bottom-color: var(--gold); color: var(--gold); font-weight: 700; }
+
+  /* PANELS */
+  .panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .panel.active { display: flex; }
+
+  /* LOG PANEL — two column on iPad */
+  #panel-log {
+    display: none;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+  }
+  #panel-log.active { display: flex; }
+
+  .log-left {
+    flex: 1;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 44px 28px 28px;
+    gap: 22px;
+    overflow-y: auto;
+  }
+  .log-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* MIC BUTTON */
+  .mic-btn {
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 3px solid var(--gold);
+    background: rgba(201,168,76,0.1);
+    color: var(--gold); font-size: 40px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+    -webkit-user-select: none; user-select: none;
+  }
+  .mic-btn.recording {
+    border-color: var(--remove-light);
+    background: rgba(192,57,43,0.18);
+    color: var(--remove-light);
+    box-shadow: 0 0 0 10px rgba(192,57,43,0.1), 0 0 0 20px rgba(192,57,43,0.05);
+  }
+  .mic-btn.processing { border-color: var(--gold); color: var(--gold); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .mic-hint {
+    font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7;
+  }
+  .mic-hint.recording { color: var(--remove-light); }
+  .mic-hint.processing { color: var(--gold); }
+
+  .transcript-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 16px; width: 100%; font-size: 13px; color: var(--muted);
+    font-style: italic; line-height: 1.6; display: none;
+  }
+
+  .error-msg { color: var(--remove-light); font-size: 13px; text-align: center; display: none; }
+
+  /* CHANGES */
+  .section-label {
+    padding: 11px 22px; font-size: 10px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .empty-hint {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; padding: 32px; text-align: center; line-height: 1.7;
+  }
+  .change-row {
+    padding: 15px 22px; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .change-top { display: flex; justify-content: space-between; align-items: center; }
+  .badge {
+    padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .badge.remove { background: rgba(192,57,43,0.15); color: var(--remove-light); border: 1px solid rgba(192,57,43,0.3); }
+  .badge.add { background: rgba(46,125,82,0.15); color: var(--add-light); border: 1px solid rgba(46,125,82,0.3); }
+  .change-qty { font-family: monospace; font-size: 22px; font-weight: 700; }
+  .change-qty.remove { color: var(--remove-light); }
+  .change-qty.add { color: var(--add-light); }
+  .change-producer { font-weight: 600; font-size: 15px; }
+  .change-wine { color: var(--muted); font-size: 13px; }
+  .change-note { color: var(--muted); font-size: 12px; font-style: italic; }
+  .summary-line { padding: 13px 22px; font-size: 13px; color: var(--muted); font-style: italic; }
+
+  /* CELLAR PANEL */
+  .cellar-toolbar {
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+    background: var(--surface); flex-shrink: 0;
+  }
+  .search-input {
+    flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 14px; font-size: 14px; font-family: inherit; outline: none;
+  }
+  .search-input:focus { border-color: var(--gold); }
+  .add-btn {
+    padding: 10px 18px; border-radius: 8px; border: none;
+    background: var(--gold); color: #0e0c0a; font-size: 13px;
+    font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .table-header {
+    display: grid; grid-template-columns: 2fr 3fr 1fr 1fr;
+    padding: 9px 20px; border-bottom: 1px solid var(--border);
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    flex-shrink: 0;
+  }
+  .table-header span:last-child { text-align: right; }
+  .cellar-list { overflow-y: auto; flex: 1; }
+  .cellar-row {
+    display: grid; grid-template-columns: 2fr 3fr 1fr 1fr;
+    padding: 13px 20px; border-bottom: 1px solid var(--border);
+    cursor: pointer; align-items: center; transition: background 0.15s;
+  }
+  .cellar-row:hover, .cellar-row:active { background: var(--card); }
+  .cellar-producer { font-weight: 600; font-size: 14px; }
+  .cellar-wine { color: var(--muted-light); font-size: 13px; }
+  .cellar-vintage { color: var(--muted); font-size: 13px; }
+  .cellar-qty { text-align: right; font-family: monospace; font-size: 20px; font-weight: 700; color: var(--gold); }
+  .cellar-qty.zero { color: var(--remove-light); }
+
+  /* HISTORY PANEL */
+  .history-list { overflow-y: auto; flex: 1; }
+  .history-entry { border-bottom: 1px solid var(--border); padding: 16px 22px; }
+  .history-meta { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
+  .history-transcript { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 10px; line-height: 1.5; }
+  .history-change { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--border); }
+  .history-change:not(:first-of-type) { border-top: none; }
+  .history-wine-name { font-size: 13px; }
+  .history-vintage { font-size: 11px; color: var(--muted); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    align-items: center; justify-content: center; z-index: 200; padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 26px; width: 100%; max-width: 460px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .modal h2 { font-size: 16px; font-weight: 600; }
+  .modal label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .modal input {
+    width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 13px; font-size: 15px; font-family: inherit; outline: none;
+  }
+  .modal input:focus { border-color: var(--gold); }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .btn-cancel {
+    flex: 1; padding: 12px 0; border-radius: 8px; border: 1px solid var(--border);
+    background: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .btn-delete {
+    padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(192,57,43,0.4);
+    background: rgba(192,57,43,0.12); color: var(--remove-light);
+    font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .btn-save {
+    flex: 1; padding: 12px 0; border-radius: 8px; border: none;
+    background: var(--gold); color: #0e0c0a; font-size: 14px;
+    font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+
+  /* FOOTER */
+  .footer {
+    padding: 10px 22px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .footer-info { font-size: 10px; color: var(--muted); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 12px; border-radius: 5px; font-size: 11px; cursor: pointer; font-family: inherit;
+  }
+
+  .loading-msg { padding: 48px; text-align: center; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="logo-label">Kellerbuch · Zippiri</div>
+  <h1>Voice Inventory</h1>
+  <p>Gib deinen Anthropic API Key ein um zu starten. Er wird lokal auf diesem Gerät gespeichert.</p>
+  <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+  <div id="setup-error"></div>
+  <button id="setup-btn" onclick="saveApiKey()">Starten →</button>
+  <p style="font-size:12px;">
+    Key besorgen: <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold);">console.anthropic.com</a>
+  </p>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Kellerbuch · Zippiri</div>
+      <h1>Voice Inventory</h1>
+    </div>
+    <div class="header-right">
+      <div class="bottle-count" id="bottle-count">0</div>
+      <div class="bottle-label">Flaschen</div>
+      <div class="sync-row">
+        <span class="sync-status" id="sync-status"></span>
+        <button class="refresh-btn" onclick="fetchInventory()">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('log', this)">Abend-Log</button>
+    <button class="tab-btn" onclick="switchTab('cellar', this)" id="cellar-tab-btn">Bestand</button>
+    <button class="tab-btn" onclick="switchTab('history', this)">Verlauf</button>
+  </div>
+
+  <!-- LOG PANEL -->
+  <div id="panel-log" class="active">
+    <div class="log-left">
+      <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">🎙</button>
+      <div class="mic-hint" id="mic-hint">Tippen zum Sprechen<br>DE · IT · EN</div>
+      <div class="transcript-box" id="transcript-box"></div>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+    <div class="log-right" id="log-right">
+      <div class="empty-hint">Hier erscheinen die erkannten<br>Änderungen nach der Aufnahme.</div>
+    </div>
+  </div>
+
+  <!-- CELLAR PANEL -->
+  <div id="panel-cellar" class="panel">
+    <div class="cellar-toolbar">
+      <input class="search-input" id="search-input" placeholder="Suchen…" oninput="renderCellar()" />
+      <button class="add-btn" onclick="openModal(null)">+ Manuell</button>
+    </div>
+    <div class="table-header">
+      <span>Produzent</span><span>Wein</span><span>JG</span><span style="text-align:right">Menge</span>
+    </div>
+    <div class="cellar-list" id="cellar-list">
+      <div class="loading-msg">Lädt von Google Sheets…</div>
+    </div>
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div id="panel-history" class="panel">
+    <div class="history-list" id="history-list">
+      <div class="loading-msg">Noch kein Verlauf.</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span class="footer-info">Google Sheets · Zippiri Kellerbuch</span>
+    <button class="reset-btn" onclick="resetApiKey()">Key ändern</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Eintrag bearbeiten</h2>
+    <div>
+      <label>Produzent</label>
+      <input id="m-producer" type="text" />
+    </div>
+    <div>
+      <label>Wein</label>
+      <input id="m-wine" type="text" />
+    </div>
+    <div class="modal-grid">
+      <div><label>Jahrgang</label><input id="m-vintage" type="number" /></div>
+      <div><label>Menge</label><input id="m-quantity" type="number" min="0" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+      <button class="btn-delete" id="modal-delete-btn" onclick="deleteEntry()">Löschen</button>
+      <button class="btn-save" onclick="saveEntry()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwHK_OEPbYTtZ9EQ2SwqW8GIYPy9UPVEl-lJqyomuiKGxogk7LmxaZTpV0Nhf_uMWREkQ/exec";
+
+const SYSTEM_PROMPT = `You are a wine cellar inventory assistant. The cellar is tracked with columns: Producer, Wine Name, Vintage, Quantity.
+The user speaks naturally in German, Italian, or English describing additions or removals after a restaurant service shift.
+Return ONLY valid JSON, no markdown, no backticks:
+{
+  "language": "de"|"it"|"en",
+  "changes": [{"action":"remove"|"add","producer":"string","wine":"string","vintage":number|null,"quantity":number,"note":"string|null"}],
+  "summary": "one sentence in the user's language"
+}
+Be flexible with name spellings. Only JSON, nothing else.`;
+
+let inventory = [];
+let history = [];
+let recording = false;
+let recognition = null;
+let currentTranscript = "";
+let editingEntry = null;
+let apiKey = "";
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  apiKey = localStorage.getItem("kb-api-key") || "";
+  if (apiKey) {
+    showApp();
+  }
+  // Load history from local storage
+  try { history = JSON.parse(localStorage.getItem("kb-history") || "[]"); } catch {}
+};
+
+function saveApiKey() {
+  const val = document.getElementById("api-key-input").value.trim();
+  if (!val.startsWith("sk-ant-")) {
+    document.getElementById("setup-error").textContent = "Ungültiger Key. Muss mit sk-ant- beginnen.";
+    return;
+  }
+  apiKey = val;
+  localStorage.setItem("kb-api-key", val);
+  showApp();
+}
+
+function resetApiKey() {
+  localStorage.removeItem("kb-api-key");
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  fetchInventory();
+  renderHistory();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("panel-log").classList.remove("active");
+  document.getElementById("panel-cellar").classList.remove("panel", "active");
+  document.getElementById("panel-history").classList.remove("panel", "active");
+
+  if (name === "log") {
+    document.getElementById("panel-log").classList.add("active");
+  } else if (name === "cellar") {
+    const p = document.getElementById("panel-cellar");
+    p.classList.add("panel", "active");
+  } else {
+    const p = document.getElementById("panel-history");
+    p.classList.add("panel", "active");
+  }
+}
+
+// ── SYNC STATUS ───────────────────────────────────────────────────────────────
+function setSyncStatus(state, text) {
+  const el = document.getElementById("sync-status");
+  el.className = "sync-status " + state;
+  el.textContent = text;
+}
+
+// ── GOOGLE SHEETS ─────────────────────────────────────────────────────────────
+async function fetchInventory() {
+  setSyncStatus("syncing", "Lädt…");
+  try {
+    const res = await fetch(SHEETS_URL + "?t=" + Date.now());
+    const data = await res.json();
+    if (data.ok) {
+      inventory = data.inventory.map((e, i) => ({ ...e, _id: i + "_" + Date.now() }));
+      renderCellar();
+      updateBottleCount();
+      setSyncStatus("ok", "✓ Google Sheets");
+      setTimeout(() => setSyncStatus("", ""), 3000);
+    } else {
+      setSyncStatus("error", "⚠ Fehler");
+    }
+  } catch(e) {
+    setSyncStatus("error", "⚠ Verbindungsfehler");
+  }
+}
+
+async function pushChanges(changes) {
+  setSyncStatus("syncing", "Speichert…");
+  try {
+    const res = await fetch(SHEETS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ changes }),
+    });
+    // no-cors means we can't read response, so just re-fetch after a short delay
+    setTimeout(async () => {
+      await fetchInventory();
+      setSyncStatus("ok", "✓ Gespeichert");
+      setTimeout(() => setSyncStatus("", ""), 3000);
+    }, 1500);
+  } catch(e) {
+    setSyncStatus("error", "⚠ Sync fehlgeschlagen");
+  }
+}
+
+// ── RECORDING ─────────────────────────────────────────────────────────────────
+function toggleRecording() {
+  if (recording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  document.getElementById("error-msg").style.display = "none";
+  document.getElementById("transcript-box").style.display = "none";
+  currentTranscript = "";
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    showError("Spracherkennung nicht verfügbar. Safari verwenden.");
+    return;
+  }
+
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "de-DE";
+
+  recognition.onresult = e => {
+    let t = "";
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + " ";
+    currentTranscript = t.trim();
+    const box = document.getElementById("transcript-box");
+    box.style.display = "block";
+    box.textContent = "„" + currentTranscript + """;
+  };
+
+  recognition.onerror = e => {
+    showError("Mikrofon-Fehler: " + e.error);
+    setMicState("idle");
+    recording = false;
+  };
+
+  recognition.start();
+  recording = true;
+  setMicState("recording");
+}
+
+function stopRecording() {
+  if (recognition) recognition.stop();
+  recording = false;
+  setMicState("processing");
+  processTranscript();
+}
+
+function setMicState(state) {
+  const btn = document.getElementById("mic-btn");
+  const hint = document.getElementById("mic-hint");
+  btn.className = "mic-btn " + (state !== "idle" ? state : "");
+  if (state === "idle") {
+    btn.textContent = "🎙";
+    hint.className = "mic-hint";
+    hint.innerHTML = "Tippen zum Sprechen<br>DE · IT · EN";
+  } else if (state === "recording") {
+    btn.textContent = "⏹";
+    hint.className = "mic-hint recording";
+    hint.innerHTML = "Aufnahme läuft<br>Tippen zum Stoppen";
+  } else if (state === "processing") {
+    btn.textContent = "⟳";
+    hint.className = "mic-hint processing";
+    hint.innerHTML = "Wird verarbeitet…";
+  }
+}
+
+// ── AI PROCESSING ─────────────────────────────────────────────────────────────
+async function processTranscript() {
+  if (!currentTranscript || currentTranscript.length < 3) {
+    showError("Kein Text erkannt. Nochmal versuchen.");
+    setMicState("idle");
+    return;
+  }
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-calls": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: currentTranscript }],
+      }),
+    });
+
+    const data = await res.json();
+    if (data.error) { showError("API Fehler: " + data.error.message); setMicState("idle"); return; }
+
+    const raw = data.content?.map(b => b.text || "").join("").trim();
+    const parsed = JSON.parse(raw);
+
+    // Save to history
+    const entry = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      transcript: currentTranscript,
+      parsed,
+    };
+    history.unshift(entry);
+    localStorage.setItem("kb-history", JSON.stringify(history.slice(0, 50)));
+
+    // Render result
+    renderResult(parsed);
+    renderHistory();
+
+    // Push to Sheets
+    await pushChanges(parsed.changes);
+
+  } catch(e) {
+    showError("Fehler: " + e.message);
+  }
+
+  setMicState("idle");
+}
+
+// ── RENDER HELPERS ────────────────────────────────────────────────────────────
+function renderResult(parsed) {
+  const right = document.getElementById("log-right");
+  let html = `<div class="section-label">Erkannte Änderungen</div>`;
+  parsed.changes.forEach(ch => {
+    const rem = ch.action === "remove";
+    html += `
+      <div class="change-row">
+        <div class="change-top">
+          <span class="badge ${ch.action}">${rem ? "− Raus" : "+ Rein"}</span>
+          <span class="change-qty ${ch.action}">${rem ? "−" : "+"}${ch.quantity}</span>
+        </div>
+        <div class="change-producer">${esc(ch.producer)}</div>
+        <div class="change-wine">${esc(ch.wine)}${ch.vintage ? " · " + ch.vintage : ""}</div>
+        ${ch.note ? `<div class="change-note">${esc(ch.note)}</div>` : ""}
+      </div>`;
+  });
+  html += `<div class="summary-line">${esc(parsed.summary)}</div>`;
+  right.innerHTML = html;
+}
+
+function renderCellar() {
+  const q = document.getElementById("search-input")?.value?.toLowerCase() || "";
+  const filtered = inventory
+    .filter(e => !q || e.producer.toLowerCase().includes(q) || e.wine.toLowerCase().includes(q) || String(e.vintage).includes(q))
+    .sort((a, b) => a.producer.localeCompare(b.producer));
+
+  const list = document.getElementById("cellar-list");
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="loading-msg">${q ? "Keine Treffer." : "Noch keine Einträge."}</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map((e, i) => `
+    <div class="cellar-row" onclick="openModal(${JSON.stringify(e).replace(/"/g, '&quot;')})">
+      <span class="cellar-producer">${esc(e.producer)}</span>
+      <span class="cellar-wine">${esc(e.wine)}</span>
+      <span class="cellar-vintage">${e.vintage || "N/V"}</span>
+      <span class="cellar-qty ${Number(e.quantity) === 0 ? 'zero' : ''}">${e.quantity}</span>
+    </div>`).join("");
+}
+
+function renderHistory() {
+  const list = document.getElementById("history-list");
+  if (!history.length) { list.innerHTML = `<div class="loading-msg">Noch kein Verlauf.</div>`; return; }
+  list.innerHTML = history.map(entry => {
+    const d = new Date(entry.timestamp);
+    const dateStr = d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const changes = entry.parsed.changes.map((ch, i) => `
+      <div class="history-change" style="${i === 0 ? '' : 'border-top:none'}">
+        <span class="badge ${ch.action}">${ch.action === "remove" ? "− Raus" : "+ Rein"}</span>
+        <span class="change-qty ${ch.action}" style="font-size:15px">${ch.action === "remove" ? "−" : "+"}${ch.quantity}</span>
+        <span class="history-wine-name">${esc(ch.producer)} — ${esc(ch.wine)}</span>
+        ${ch.vintage ? `<span class="history-vintage">${ch.vintage}</span>` : ""}
+      </div>`).join("");
+    return `
+      <div class="history-entry">
+        <div class="history-meta"><span>${dateStr}</span><span>${entry.parsed.changes.length} Änderung(en)</span></div>
+        <div class="history-transcript">„${esc(entry.transcript)}"</div>
+        ${changes}
+      </div>`;
+  }).join("");
+}
+
+function updateBottleCount() {
+  document.getElementById("bottle-count").textContent = inventory.reduce((s, e) => s + Number(e.quantity), 0);
+  document.getElementById("cellar-tab-btn").textContent = `Bestand (${inventory.length})`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(entry) {
+  editingEntry = entry;
+  document.getElementById("m-producer").value = entry ? entry.producer : "";
+  document.getElementById("m-wine").value = entry ? entry.wine : "";
+  document.getElementById("m-vintage").value = entry ? (entry.vintage || "") : "";
+  document.getElementById("m-quantity").value = entry ? entry.quantity : 0;
+  document.getElementById("modal-delete-btn").style.display = entry ? "block" : "none";
+  document.getElementById("modal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+  editingEntry = null;
+}
+
+async function saveEntry() {
+  const producer = document.getElementById("m-producer").value.trim();
+  const wine = document.getElementById("m-wine").value.trim();
+  const vintage = document.getElementById("m-vintage").value ? Number(document.getElementById("m-vintage").value) : null;
+  const quantity = Number(document.getElementById("m-quantity").value);
+  if (!producer || !wine) return;
+
+  if (editingEntry) {
+    const delta = quantity - Number(editingEntry.quantity);
+    if (delta !== 0) {
+      await pushChanges([{ action: delta > 0 ? "add" : "remove", producer, wine, vintage, quantity: Math.abs(delta) }]);
+    } else {
+      fetchInventory();
+    }
+  } else {
+    await pushChanges([{ action: "add", producer, wine, vintage, quantity }]);
+  }
+  closeModal();
+}
+
+async function deleteEntry() {
+  if (!editingEntry) return;
+  if (!confirm("Eintrag löschen?")) return;
+  if (Number(editingEntry.quantity) > 0) {
+    await pushChanges([{ action: "remove", producer: editingEntry.producer,
+      wine: editingEntry.wine, vintage: editingEntry.vintage, quantity: Number(editingEntry.quantity) }]);
+  } else {
+    fetchInventory();
+  }
+  closeModal();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const el = document.getElementById("error-msg");
+  el.textContent = msg; el.style.display = "block";
+}
+
+function esc(str) {
+  return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+</script>
+</body>
+</html>
