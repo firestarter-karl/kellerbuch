@@ -206,7 +206,7 @@ body { background: var(--bg); color: var(--text); font-family: Georgia, serif; m
 </div>
 
 <script>
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwHK_OEPbYTtZ9EQ2SwqW8GIYPy9UPVEl-lJqyomuiKGxogk7LmxaZTpV0Nhf_uMWREkQ/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbzZla_YdRgm9jItgAVA-BzxWM39dV6tySg4d55B4WzLZ709FwbmVWKJ93LfF_ns6IWi/exec";
 const SYSTEM_PROMPT = `You are a wine cellar assistant. Parse the user's spoken update (German, Italian, or English) and return ONLY valid JSON:
 {"language":"de","changes":[{"action":"remove","producer":"string","wine":"string","vintage":2019,"quantity":1,"note":null}],"summary":"one sentence"}
 action is "add" or "remove". Return nothing except the JSON object.`;
@@ -280,19 +280,30 @@ async function fetchInventory() {
       setSyncStatus("ok", "✓ Google Sheets");
       setTimeout(() => setSyncStatus("", ""), 3000);
     } else { setSyncStatus("error", "⚠ Sheet error"); }
-  } catch { setSyncStatus("error", "⚠ Connection error"); }
+  } catch(e) { setSyncStatus("error", "⚠ Connection error"); console.error(e); }
 }
 
 async function pushChanges(changes) {
   setSyncStatus("syncing", "Saving…");
   try {
-    await fetch(SHEETS_URL, {
-      method: "POST", mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
+    const res = await fetch(SHEETS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" }, // text/plain avoids CORS preflight with Apps Script
       body: JSON.stringify({ changes }),
     });
-    setTimeout(fetchInventory, 1800);
-  } catch { setSyncStatus("error", "⚠ Sync failed"); }
+    const data = await res.json();
+    if (data.ok) {
+      setSyncStatus("ok", "✓ Saved");
+      await fetchInventory();
+      setTimeout(() => setSyncStatus("", ""), 3000);
+    } else {
+      setSyncStatus("error", "⚠ " + (data.error || "Sheet error"));
+      showError("Sheets error: " + (data.error || "unknown"));
+    }
+  } catch(e) {
+    setSyncStatus("error", "⚠ Sync failed");
+    showError("Sync failed: " + e.message);
+  }
 }
 
 // ── RECORDING ─────────────────────────────────────────────────────────────────
