@@ -208,10 +208,12 @@ body { background: var(--bg); color: var(--text); font-family: Georgia, serif; m
 <script>
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbzZla_YdRgm9jItgAVA-BzxWM39dV6tySg4d55B4WzLZ709FwbmVWKJ93LfF_ns6IWi/exec";
 const SYSTEM_PROMPT = `You are a wine cellar assistant for an Italian-focused restaurant cellar in Cologne, Germany. Parse the user's spoken update (German, Italian, or English) and return ONLY valid JSON:
-{"language":"de","changes":[{"action":"remove","producer":"string","wine":"string","vintage":2019,"quantity":1,"note":null}],"summary":"one sentence"}
+{"language":"de","changes":[{"action":"remove","producer":"string","wine":"string","vintage":null,"quantity":1,"note":null}],"summary":"one sentence"}
 action is "add" or "remove".
 
-The cellar consists almost entirely of Italian wines, with some German and Austrian wines. There are no Spanish or French wines. When the spoken transcript contains an ambiguous, garbled, or phonetically-transcribed producer or wine name, prioritize plausible Italian wine region, grape, or producer naming conventions (e.g. words ending in -o, -i, -ese, -ano, double consonants, regional terms like Barolo, Brunello, Etna, Langhe, Soave) over literal English/German phonetic spellings, since the speech-to-text engine is not tuned for Italian vocabulary and frequently mangles these names. Use your knowledge of real Italian producers and wines to correct obvious transcription errors when confident, but never invent a producer that wasn't referenced at all.
+This cellar does not stock multiple vintages of the same wine, so vintage is not used to identify a wine — only producer and wine name matter for matching. Only set "vintage" if the user explicitly states a year out loud; otherwise always leave it as null. Never guess or infer a vintage.
+
+The cellar consists almost entirely of Italian wines, with some German and Austrian wines. There are no Spanish or French wines. When the spoken transcript contains an ambiguous, garbled, or phonetically-transcribed producer or wine name, prioritize plausible Italian wine region, grape, or producer naming conventions (e.g. words ending in -o, -i, -ese, -ano, double consonants, regional terms like Barolo, Brunello, Etna, Langhe, Soave) over literal English/German phonetic spellings, since the speech-to-text engine is not tuned for Italian vocabulary and frequently mangles these names. Use your knowledge of real Italian producers and wines to correct obvious transcription errors when confident, but never invent a producer that wasn't referenced at all. Do not substitute one real wine name for a different, more famous real wine — e.g. do not change "Barbaresco" to "Barolo" just because Barolo is better known; only correct genuine phonetic noise, not deliberate wine choices.
 
 Return nothing except the raw JSON object — no markdown code fences, no backticks, no \`\`\`json wrapper, no explanation before or after.`;
 
