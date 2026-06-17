@@ -352,16 +352,16 @@ function setMicState(state) {
 }
 
 // ── AI ────────────────────────────────────────────────────────────────────────
+const PROXY_URL = "https://kellerbuch-proxy.karljasperschmidt.workers.dev";
+
 async function processTranscript() {
   if (!currentTranscript || currentTranscript.length < 3) { showError("No speech detected. Try again."); setMicState("idle"); return; }
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(PROXY_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-calls": "true",
       },
       body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: currentTranscript }] }),
     });
