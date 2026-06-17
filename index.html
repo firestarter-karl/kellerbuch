@@ -53,15 +53,17 @@ body { background: var(--bg); color: var(--text); font-family: Georgia, serif; m
 #panel-log { flex-direction: row; }
 
 /* LOG */
-.log-left { flex: 1; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 44px 28px; gap: 22px; overflow-y: auto; }
+.log-left { flex: 1; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 36px 28px; gap: 14px; overflow-y: auto; }
 .log-right { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
-.mic-btn { width: 110px; height: 110px; border-radius: 50%; border: 3px solid var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); font-size: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.25s; flex-shrink: 0; -webkit-user-select: none; user-select: none; }
-.mic-btn.recording { border-color: var(--remove-light); background: rgba(192,57,43,0.18); color: var(--remove-light); box-shadow: 0 0 0 10px rgba(192,57,43,0.1), 0 0 0 20px rgba(192,57,43,0.05); }
-.mic-btn.processing { border-color: var(--gold); color: var(--gold); }
-.mic-hint { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7; }
-.mic-hint.recording { color: var(--remove-light); }
-.mic-hint.processing { color: var(--gold); }
-.transcript-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; width: 100%; font-size: 13px; color: var(--muted); font-style: italic; line-height: 1.6; display: none; }
+.input-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; align-self: flex-start; }
+.wine-textarea { width: 100%; flex: 1; min-height: 220px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 16px 18px; font-size: 15px; font-family: inherit; line-height: 1.6; resize: vertical; outline: none; box-sizing: border-box; }
+.wine-textarea:focus { border-color: var(--gold); }
+.wine-textarea::placeholder { color: var(--muted); opacity: 0.7; }
+.submit-btn { width: 100%; padding: 16px; border-radius: 10px; border: none; background: var(--gold); color: #0e0c0a; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; transition: opacity 0.2s; }
+.submit-btn:disabled { opacity: 0.5; cursor: wait; }
+.submit-btn.processing { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+.input-hint { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6; }
 .error-box { color: var(--remove-light); font-size: 13px; text-align: center; display: none; }
 .section-label { padding: 11px 22px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .empty-hint { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; padding: 32px; text-align: center; line-height: 1.7; }
@@ -157,13 +159,14 @@ body { background: var(--bg); color: var(--text); font-family: Georgia, serif; m
 
   <div id="panel-log" class="panel active">
     <div class="log-left">
-      <button class="mic-btn" id="mic-btn">🎙</button>
-      <div class="mic-hint" id="mic-hint">Tap to speak<br>DE · IT · EN</div>
-      <div class="transcript-box" id="transcript-box"></div>
+      <div class="input-label">Was wurde entnommen oder geliefert?</div>
+      <textarea class="wine-textarea" id="wine-input" placeholder="z.B. 2x Planeta NdA, 1x Gaja Barbaresco raus, Lieferung: 6x Soave Pieropan"></textarea>
+      <button class="submit-btn" id="submit-btn">Bestand aktualisieren</button>
+      <div class="input-hint">Freitext — Claude erkennt Mengen, Weine und ob es sich um Entnahme oder Lieferung handelt.</div>
       <div class="error-box" id="error-box"></div>
     </div>
     <div class="log-right" id="log-right">
-      <div class="empty-hint">Results appear here<br>after recording.</div>
+      <div class="empty-hint">Ergebnisse erscheinen hier<br>nach dem Absenden.</div>
     </div>
   </div>
 
@@ -207,17 +210,29 @@ body { background: var(--bg); color: var(--text); font-family: Georgia, serif; m
 
 <script>
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbzZla_YdRgm9jItgAVA-BzxWM39dV6tySg4d55B4WzLZ709FwbmVWKJ93LfF_ns6IWi/exec";
-const SYSTEM_PROMPT = `You are a wine cellar assistant for an Italian-focused restaurant cellar in Cologne, Germany. Parse the user's spoken update (German, Italian, or English) and return ONLY valid JSON:
+const SYSTEM_PROMPT = `You are a wine cellar assistant for an Italian-focused restaurant cellar in Cologne, Germany. Staff type free-text, shorthand notes (German, Italian, or English) describing wines removed during service or added from deliveries — not necessarily full sentences. Return ONLY valid JSON:
 {"language":"de","changes":[{"action":"remove","producer":"string","wine":"string","vintage":null,"quantity":1,"note":null}],"summary":"one sentence"}
 action is "add" or "remove".
 
-This cellar does not stock multiple vintages of the same wine, so vintage is not used to identify a wine — only producer and wine name matter for matching. Only set "vintage" if the user explicitly states a year out loud; otherwise always leave it as null. Never guess or infer a vintage.
+INPUT FORMAT: Input is typed shorthand, not spoken sentences. Examples of valid input and how to read them:
+- "2x Planeta NdA" → quantity 2, producer Planeta, wine "Nero d'Avola" (NdA is a common abbreviation), action defaults to "remove" since no delivery context is given
+- "1x Gaja Barbaresco raus" → quantity 1, producer Gaja, wine Barbaresco, action "remove" (German "raus" = out/removed)
+- "Lieferung: 6x Soave Pieropan" → quantity 6, producer Pieropan, wine Soave, action "add" (German "Lieferung" = delivery)
+- "+3 Barolo Mascarello" → quantity 3, action "add" (leading + sign means addition)
+- "-2 Barolo Mascarello" or "2 Barolo Mascarello raus/weg/verkauft" → action "remove"
+- Multiple wines may appear in one block, separated by commas, line breaks, or semicolons — parse each as a separate entry in "changes"
 
-The cellar consists almost entirely of Italian wines, with some German and Austrian wines. There are no Spanish or French wines. When the spoken transcript contains an ambiguous, garbled, or phonetically-transcribed producer or wine name, prioritize plausible Italian wine region, grape, or producer naming conventions (e.g. words ending in -o, -i, -ese, -ano, double consonants, regional terms like Barolo, Brunello, Etna, Langhe, Soave) over literal English/German phonetic spellings, since the speech-to-text engine is not tuned for Italian vocabulary and frequently mangles these names. Use your knowledge of real Italian producers and wines to correct obvious transcription errors when confident, but never invent a producer that wasn't referenced at all. Do not substitute one real wine name for a different, more famous real wine — e.g. do not change "Barbaresco" to "Barolo" just because Barolo is better known; only correct genuine phonetic noise, not deliberate wine choices.
+DEFAULT RULE: If no explicit signal indicates a delivery/addition (no "+", no "Lieferung", "geliefert", "delivery", "rein", "dazu", "bekommen"), assume action is "remove" — removals during service are the far more common case. Only mark "add" when there's a clear signal of incoming stock.
+
+ABBREVIATIONS: Staff commonly abbreviate wine names (e.g. "NdA" = Nero d'Avola, "BdN" = Bianco di Nocera, vintage shorthand like "'19" = 2019). Expand abbreviations to full wine names when confident based on real Italian wine knowledge.
+
+This cellar does not stock multiple vintages of the same wine, so vintage is not used to identify a wine — only producer and wine name matter for matching. Only set "vintage" if explicitly written (e.g. "'19", "2019"); otherwise leave it null. Never guess or infer a vintage.
+
+The cellar consists almost entirely of Italian wines, with some German and Austrian wines. There are no Spanish or French wines. When a producer or wine name is ambiguous, abbreviated, or possibly misspelled, prioritize plausible Italian wine region, grape, or producer naming conventions (e.g. words ending in -o, -i, -ese, -ano, double consonants, regional terms like Barolo, Brunello, Etna, Langhe, Soave) over literal interpretations. Use your knowledge of real Italian producers and wines to expand abbreviations and correct obvious typos when confident, but never invent a producer that wasn't referenced at all. Do not substitute one real wine name for a different, more famous real wine — e.g. do not change "Barbaresco" to "Barolo" just because Barolo is better known; only correct genuine typos/abbreviations, not deliberate wine choices.
 
 Return nothing except the raw JSON object — no markdown code fences, no backticks, no \`\`\`json wrapper, no explanation before or after.`;
 
-let inventory = [], history = [], recording = false, recognition = null, currentTranscript = "", editingEntry = null, apiKey = "";
+let inventory = [], history = [], editingEntry = null, apiKey = "";
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -230,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindEvents() {
   document.getElementById("start-btn").addEventListener("click", handleStart);
   document.getElementById("key-input").addEventListener("keydown", e => { if (e.key === "Enter") handleStart(); });
-  document.getElementById("mic-btn").addEventListener("click", toggleRecording);
+  document.getElementById("submit-btn").addEventListener("click", submitWineText);
   document.getElementById("refresh-btn").addEventListener("click", fetchInventory);
   document.getElementById("reset-btn").addEventListener("click", () => { localStorage.removeItem("kb-key"); location.reload(); });
   document.getElementById("add-btn").addEventListener("click", () => openModal(null));
@@ -312,56 +327,30 @@ async function pushChanges(changes) {
   }
 }
 
-// ── RECORDING ─────────────────────────────────────────────────────────────────
-function toggleRecording() {
-  recording ? stopRecording() : startRecording();
-}
-
-function startRecording() {
-  document.getElementById("error-box").style.display = "none";
-  document.getElementById("transcript-box").style.display = "none";
-  currentTranscript = "";
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showError("Speech recognition not available. Use Safari."); return; }
-  recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "de-DE";
-  recognition.onresult = e => {
-    let t = "";
-    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + " ";
-    currentTranscript = t.trim();
-    const box = document.getElementById("transcript-box");
-    box.style.display = "block";
-    box.textContent = "\u201E" + currentTranscript + "\u201C";
-  };
-  recognition.onerror = e => { showError("Mic error: " + e.error); setMicState("idle"); recording = false; };
-  recognition.start();
-  recording = true;
-  setMicState("recording");
-}
-
-function stopRecording() {
-  if (recognition) recognition.stop();
-  recording = false;
-  setMicState("processing");
-  processTranscript();
-}
-
-function setMicState(state) {
-  const btn = document.getElementById("mic-btn");
-  const hint = document.getElementById("mic-hint");
-  btn.className = "mic-btn" + (state !== "idle" ? " " + state : "");
-  if (state === "idle") { btn.textContent = "🎙"; hint.className = "mic-hint"; hint.innerHTML = "Tap to speak<br>DE · IT · EN"; }
-  else if (state === "recording") { btn.textContent = "⏹"; hint.className = "mic-hint recording"; hint.innerHTML = "Recording…<br>Tap to stop"; }
-  else { btn.textContent = "⟳"; hint.className = "mic-hint processing"; hint.innerHTML = "Processing…"; }
-}
-
 // ── AI ────────────────────────────────────────────────────────────────────────
 const PROXY_URL = "https://kellerbuch-proxy.karljasperschmidt.workers.dev";
 
-async function processTranscript() {
-  if (!currentTranscript || currentTranscript.length < 3) { showError("No speech detected. Try again."); setMicState("idle"); return; }
+function setSubmitState(state) {
+  const btn = document.getElementById("submit-btn");
+  if (state === "processing") {
+    btn.disabled = true;
+    btn.classList.add("processing");
+    btn.textContent = "Wird verarbeitet…";
+  } else {
+    btn.disabled = false;
+    btn.classList.remove("processing");
+    btn.textContent = "Bestand aktualisieren";
+  }
+}
+
+async function submitWineText() {
+  const input = document.getElementById("wine-input");
+  const text = input.value.trim();
+  document.getElementById("error-box").style.display = "none";
+
+  if (!text || text.length < 3) { showError("Bitte etwas eingeben."); return; }
+
+  setSubmitState("processing");
   try {
     const res = await fetch(PROXY_URL, {
       method: "POST",
@@ -369,16 +358,16 @@ async function processTranscript() {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
       },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: currentTranscript }] }),
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: text }] }),
     });
     if (!res.ok) {
       const errText = await res.text();
       showError("HTTP " + res.status + ": " + errText.slice(0, 200));
-      setMicState("idle");
+      setSubmitState("idle");
       return;
     }
     const data = await res.json();
-    if (data.error) { showError("API error: " + data.error.message); setMicState("idle"); return; }
+    if (data.error) { showError("API error: " + data.error.message); setSubmitState("idle"); return; }
     let raw = data.content.map(b => b.text || "").join("").trim();
     raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```\s*$/, "").trim();
     let parsed;
@@ -386,15 +375,16 @@ async function processTranscript() {
       parsed = JSON.parse(raw);
     } catch(parseErr) {
       showError("Could not parse Claude's response: " + parseErr.message + " — raw: " + raw.slice(0, 150));
-      setMicState("idle");
+      setSubmitState("idle");
       return;
     }
-    const entry = { id: Date.now(), timestamp: new Date().toISOString(), transcript: currentTranscript, parsed };
+    const entry = { id: Date.now(), timestamp: new Date().toISOString(), transcript: text, parsed };
     history.unshift(entry);
     localStorage.setItem("kb-history", JSON.stringify(history.slice(0, 50)));
     renderResult(parsed);
     renderHistory();
     await pushChanges(parsed.changes);
+    input.value = "";
   } catch(e) {
     if (e.message.toLowerCase().includes("load failed") || e.message.toLowerCase().includes("network")) {
       showError("Network/CORS error reaching Anthropic API: " + e.message + " — this usually means the browser blocked the direct API call.");
@@ -402,7 +392,7 @@ async function processTranscript() {
       showError("Error: " + e.message);
     }
   }
-  setMicState("idle");
+  setSubmitState("idle");
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
