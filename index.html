@@ -365,6 +365,12 @@ async function processTranscript() {
       },
       body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: currentTranscript }] }),
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      showError("HTTP " + res.status + ": " + errText.slice(0, 200));
+      setMicState("idle");
+      return;
+    }
     const data = await res.json();
     if (data.error) { showError("API error: " + data.error.message); setMicState("idle"); return; }
     const raw = data.content.map(b => b.text || "").join("").trim();
@@ -375,7 +381,13 @@ async function processTranscript() {
     renderResult(parsed);
     renderHistory();
     await pushChanges(parsed.changes);
-  } catch(e) { showError("Error: " + e.message); }
+  } catch(e) {
+    if (e.message.toLowerCase().includes("load failed") || e.message.toLowerCase().includes("network")) {
+      showError("Network/CORS error reaching Anthropic API: " + e.message + " — this usually means the browser blocked the direct API call.");
+    } else {
+      showError("Error: " + e.message);
+    }
+  }
   setMicState("idle");
 }
 
