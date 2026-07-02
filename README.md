@@ -1,2 +1,2 @@
 # Kellerbuch Z.
-Wine Cellar Voice Inventory
+Wine Cellar Inventory Tool for the Restaurant of Tomorrow. 
